@@ -4,6 +4,7 @@ import { AudioEngine }    from './AudioEngine.js';
 import { ParticleSystem } from '../systems/ParticleSystem.js';
 import { DialogueSystem } from '../systems/DialogueSystem.js';
 import { EventBus }       from '../systems/EventBus.js';
+import { NetworkManager } from '../systems/NetworkManager.js';
 import { TitleScene }     from '../scenes/TitleScene.js';
 import { MapScene }       from '../scenes/MapScene.js';
 import { BattleScene }    from '../scenes/BattleScene.js';
@@ -21,6 +22,7 @@ export class GameEngine {
     this.audio     = new AudioEngine();
     this.particles = new ParticleSystem('particle-canvas');
     this.dialogue  = new DialogueSystem();
+    this.network   = new NetworkManager(this);
     this.scenes    = new SceneManager(
       document.getElementById('scene-container'),
       this.bus
@@ -202,6 +204,7 @@ _startPlatformer(bossId, lives = 3) {
     this.audio.destroy();
     this.particles.destroy();
     this.dialogue.destroy();
+    this.network.disconnect();
     this.scenes.destroy();
   }
 }

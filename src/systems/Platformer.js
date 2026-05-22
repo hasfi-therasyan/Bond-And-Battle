@@ -33,6 +33,8 @@ export class Platformer {
     this.accumulator = 0;
     this.lastTime = 0;
 
+    this.remotePlayer = null;
+
     this._buildLevel();
     this._setupInput();
   }
@@ -89,6 +91,17 @@ export class Platformer {
     this._updateParticles();
     this._updateCamera();
     if (this.fog) this.fogTimer += 0.008;
+
+    // Sync state if multiplayer is active
+    if (this.ge?.network?.socket?.connected) {
+      this.ge.network.syncState({
+        x: this.hero.x,
+        y: this.hero.y,
+        direction: this.hero.direction,
+        frame: this.hero.frame
+      });
+      this.remotePlayer = this.ge.network.remotePlayer;
+    }
   }
 
   _updateHero() {
@@ -354,7 +367,15 @@ export class Platformer {
     this._drawHearts(ctx);
     this._drawEnemies(ctx);
     this._drawRocks(ctx);
-    this._drawHero(ctx);
+    
+    // Draw Remote Hero First
+    if (this.remotePlayer) {
+      this._drawHeroSprite(ctx, this.remotePlayer, true);
+    }
+    
+    // Draw Local Hero
+    this._drawHeroSprite(ctx, this.hero, false);
+    
     this._drawParticles(ctx);
 
     ctx.restore();
@@ -599,75 +620,82 @@ export class Platformer {
     }
   }
 
-  _drawHero(ctx) {
-    const h   = this.hero;
-    const x   = h.x;
-    const y   = h.y;
+  _drawHeroSprite(ctx, h, isRemote = false) {
+    const x = h.x;
+    const y = h.y;
 
-    // Invincibility flash
-    if (h.invincible > 0 && Math.floor(h.invincible / 6) % 2 === 0) return;
+    // Invincibility flash for local hero
+    if (!isRemote && h.invincible > 0 && Math.floor(h.invincible / 6) % 2 === 0) return;
 
     ctx.save();
-    ctx.translate(x + h.w / 2, y + h.h / 2);
+    ctx.translate(x + 10, y + 14); // 20/2, 28/2
     ctx.scale(h.direction, 1);
-    ctx.translate(-h.w / 2, -h.h / 2);
+    ctx.translate(-10, -14);
+
+    // Different colors for remote hero
+    const hairColor = isRemote ? '#a7c9d4' : '#c9a7d4';
+    const hairDark  = isRemote ? '#94b8c8' : '#b894c8';
+    const dressMain = isRemote ? '#bbf2a7' : '#f2a7bb';
+    const dressDark = isRemote ? '#a0e8b8' : '#e8a0b8';
 
     // Glow
-    const aura = ctx.createRadialGradient(h.w/2, h.h/2, 4, h.w/2, h.h/2, 24);
-    aura.addColorStop(0, 'rgba(242,167,187,0.4)');
+    const aura = ctx.createRadialGradient(10, 14, 4, 10, 14, 24);
+    aura.addColorStop(0, isRemote ? 'rgba(167,201,212,0.4)' : 'rgba(242,167,187,0.4)');
     aura.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = aura;
     ctx.beginPath();
-    ctx.arc(h.w/2, h.h/2, 24, 0, Math.PI * 2);
+    ctx.arc(10, 14, 24, 0, Math.PI * 2);
     ctx.fill();
 
     // Legs (walk animation)
-    const legSwing = h.onGround ? Math.sin(h.frame * Math.PI / 2) * 5 : 0;
-    ctx.fillStyle = '#c9a7d4';
-    ctx.fillRect(1,            h.h - 10, 7, 10);
-    ctx.fillRect(h.w - 8,     h.h - 10, 7, 10);
+    const legSwing = (!isRemote || h.moving) ? Math.sin(h.frame * Math.PI / 2) * 5 : 0;
+    ctx.fillStyle = hairColor;
+    ctx.fillRect(1,            18, 7, 10);
+    ctx.fillRect(12,           18, 7, 10);
     // Leg offset when walking
-    ctx.fillStyle = '#b894c8';
-    ctx.fillRect(2,            h.h - 10 + legSwing,  6, 9);
-    ctx.fillRect(h.w - 8,     h.h - 10 - legSwing,  6, 9);
+    ctx.fillStyle = hairDark;
+    ctx.fillRect(2,            18 + legSwing,  6, 9);
+    ctx.fillRect(12,           18 - legSwing,  6, 9);
 
     // Dress body (pixel style)
-    ctx.fillStyle = '#e8a0b8';
-    ctx.fillRect(0, h.h - 18, h.w, 10);
-    ctx.fillStyle = '#f2a7bb';
-    ctx.fillRect(2, 10, h.w - 4, h.h - 22);
+    ctx.fillStyle = dressDark;
+    ctx.fillRect(0, 10, 20, 10);
+    ctx.fillStyle = dressMain;
+    ctx.fillRect(2, 10, 16, 6);
 
     // Arms
-    const armSwing = h.onGround ? Math.sin(h.frame * Math.PI / 2) * 4 : 0;
+    const armSwing = (!isRemote || h.moving) ? Math.sin(h.frame * Math.PI / 2) * 4 : 0;
     ctx.fillStyle = '#f2c4d0';
     ctx.fillRect(-4, 12 + armSwing, 5, 10);
-    ctx.fillRect(h.w - 1, 12 - armSwing, 5, 10);
+    ctx.fillRect(19, 12 - armSwing, 5, 10);
 
     // Head (pixel)
     ctx.fillStyle = '#f2c4d0';
-    ctx.fillRect(3, 0, h.w - 6, 12);
+    ctx.fillRect(3, 0, 14, 12);
     // Hair
-    ctx.fillStyle = '#c9a7d4';
-    ctx.fillRect(2, -3, h.w - 4, 6);
+    ctx.fillStyle = hairColor;
+    ctx.fillRect(2, -3, 16, 6);
     ctx.fillRect(-1, 0, 4, 10);
     // Eyes
-    if (h.invincible === 0 || Math.floor(h.invincible / 3) % 2 === 0) {
-      ctx.fillStyle = '#3b1f2e';
-      ctx.fillRect(5,  4, 3, 3);
-      ctx.fillRect(12, 4, 3, 3);
-      // Blush
-      ctx.fillStyle = 'rgba(242,167,187,0.5)';
-      ctx.fillRect(3,  6, 3, 2);
-      ctx.fillRect(14, 6, 3, 2);
-    }
+    ctx.fillStyle = '#3b1f2e';
+    ctx.fillRect(5,  4, 3, 3);
+    ctx.fillRect(12, 4, 3, 3);
+    // Blush
+    ctx.fillStyle = 'rgba(242,167,187,0.5)';
+    ctx.fillRect(3,  6, 3, 2);
+    ctx.fillRect(14, 6, 3, 2);
 
     ctx.restore();
 
     // Shadow on ground
     ctx.fillStyle = 'rgba(0,0,0,0.2)';
     ctx.beginPath();
-    ctx.ellipse(x + h.w/2, y + h.h + 2, 12, 4, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + 10, y + 28 + 2, 12, 4, 0, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  _drawHero(ctx) {
+     // Old drawHero replaced by _drawHeroSprite
   }
 
   _drawParticles(ctx) {

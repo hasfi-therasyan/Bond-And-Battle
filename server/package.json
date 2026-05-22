@@ -1,0 +1,13 @@
+{
+  "name": "bond-and-battle-server",
+  "version": "1.0.0",
+  "description": "Minimal multiplayer backend for Bond-And-Battle",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}
