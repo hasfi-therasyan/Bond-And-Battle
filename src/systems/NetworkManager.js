@@ -6,8 +6,10 @@ export class NetworkManager {
     this.isHost = false;
     this.remotePlayer = null; // { id, x, y, direction, frame }
     
-    // Server URL placeholder - User will update this after Cloud Run deployment
-    this.serverUrl = 'http://localhost:8080'; 
+    // Auto-detect server URL for unified deployment
+    this.serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+      ? 'http://localhost:8080' 
+      : window.location.origin; 
   }
 
   connect() {

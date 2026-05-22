@@ -1,14 +1,25 @@
 const express = require('express');
 const http = require('http');
+const path = require('path');
 const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", // Adjust for production
+    origin: "*", 
     methods: ["GET", "POST"]
   }
+});
+
+// Serve frontend static files from the root directory
+// When running from server/index.js, the root is one level up
+const rootDir = path.join(__dirname, '..');
+app.use(express.static(rootDir));
+
+// Fallback to index.html for SPA-style routing if needed
+app.get('*', (req, res) => {
+  res.sendFile(path.join(rootDir, 'index.html'));
 });
 
 const MAX_ROOMS = 8;
